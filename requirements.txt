@@ -1,0 +1,10 @@
+# Core dependencies
+httpx
+loguru
+pydantic
+pandas
+syft_event
+syft_rpc
+
+# Optional dependencies
+jupyter 
