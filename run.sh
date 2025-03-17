@@ -5,6 +5,7 @@ SERVER_SCRIPT="llama_remote.py"
 PID_FILE="/tmp/ollama_remote_server.pid"
 LOG_FILE="/tmp/ollama_remote_server.log"
 CONFIG_PATH=""  # Optional: Set to path of your config.json
+SYFT_CONFIG_PATH=""  # Optional: Path to custom Syft config file
 VENV_DIR=".venv"  # Default virtual environment directory
 
 # Function to check if command exists
@@ -29,11 +30,22 @@ if [ "$1" = "-f" ] || [ "$1" = "--foreground" ]; then
     shift
 fi
 
-# If config is provided as an argument
-if [ "$1" = "--config" ] && [ -n "$2" ]; then
-    CONFIG_PATH="$2"
-    shift 2
-fi
+# Check for config parameters
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --config)
+            CONFIG_PATH="$2"
+            shift 2
+            ;;
+        --syft-config)
+            SYFT_CONFIG_PATH="$2"
+            shift 2
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
 
 # Determine package manager and set up virtual environment if needed
 if command_exists uv; then
@@ -83,35 +95,33 @@ if [ "$INSTALL_DEPS" == "true" ]; then
     fi
 fi
 
+# Create command args array
+CMD_ARGS=()
+
+# Add configuration arg - prioritize syft-config over config if both provided
+if [ -n "$SYFT_CONFIG_PATH" ]; then
+    CMD_ARGS+=(--config "$SYFT_CONFIG_PATH")
+elif [ -n "$CONFIG_PATH" ]; then
+    CMD_ARGS+=(--config "$CONFIG_PATH")
+fi
+
+# Add any remaining arguments, filtering out our custom flags
+for arg in "$@"; do
+    if [ "$arg" != "--skip-deps" ] && [ "$arg" != "--install-deps" ]; then
+        CMD_ARGS+=("$arg")
+    fi
+done
+
 # If running in foreground mode, execute directly
 if [ "$FOREGROUND" = true ]; then
     echo "Starting Ollama Remote server in foreground mode..."
     
-    # Create clean arguments without our custom flags
-    CLEAN_ARGS=()
-    for arg in "$@"; do
-        if [ "$arg" != "--skip-deps" ] && [ "$arg" != "--install-deps" ]; then
-            CLEAN_ARGS+=("$arg")
-        fi
-    done
-    
-    # Run with config if provided
-    if [ -n "$CONFIG_PATH" ]; then
-        if [ -n "$RUNNER" ]; then
-            echo "Running: $RUNNER $PYTHON_CMD -m llama_remote --config $CONFIG_PATH ${CLEAN_ARGS[@]}"
-            $RUNNER $PYTHON_CMD -m llama_remote --config "$CONFIG_PATH" "${CLEAN_ARGS[@]}"
-        else
-            echo "Running: $PYTHON_CMD -m llama_remote --config $CONFIG_PATH ${CLEAN_ARGS[@]}"
-            $PYTHON_CMD -m llama_remote --config "$CONFIG_PATH" "${CLEAN_ARGS[@]}"
-        fi
+    if [ -n "$RUNNER" ]; then
+        echo "Running: $RUNNER $PYTHON_CMD -m llama_remote ${CMD_ARGS[@]}"
+        $RUNNER $PYTHON_CMD -m llama_remote "${CMD_ARGS[@]}"
     else
-        if [ -n "$RUNNER" ]; then
-            echo "Running: $RUNNER $PYTHON_CMD -m llama_remote ${CLEAN_ARGS[@]}"
-            $RUNNER $PYTHON_CMD -m llama_remote "${CLEAN_ARGS[@]}"
-        else
-            echo "Running: $PYTHON_CMD -m llama_remote ${CLEAN_ARGS[@]}"
-            $PYTHON_CMD -m llama_remote "${CLEAN_ARGS[@]}"
-        fi
+        echo "Running: $PYTHON_CMD -m llama_remote ${CMD_ARGS[@]}"
+        $PYTHON_CMD -m llama_remote "${CMD_ARGS[@]}"
     fi
     exit $?
 fi
@@ -129,30 +139,13 @@ if [ -f "$PID_FILE" ]; then
     fi
 fi
 
-# Create clean arguments without our custom flags
-CLEAN_ARGS=()
-for arg in "$@"; do
-    if [ "$arg" != "--skip-deps" ] && [ "$arg" != "--install-deps" ]; then
-        CLEAN_ARGS+=("$arg")
-    fi
-done
-
 # Start the server in the background
 echo "Starting Ollama Remote server in background mode..."
 
-# Start with config if provided
-if [ -n "$CONFIG_PATH" ]; then
-    if [ -n "$RUNNER" ]; then
-        $RUNNER $PYTHON_CMD -m llama_remote --config "$CONFIG_PATH" "${CLEAN_ARGS[@]}" > "$LOG_FILE" 2>&1 &
-    else
-        $PYTHON_CMD -m llama_remote --config "$CONFIG_PATH" "${CLEAN_ARGS[@]}" > "$LOG_FILE" 2>&1 &
-    fi
+if [ -n "$RUNNER" ]; then
+    $RUNNER $PYTHON_CMD -m llama_remote "${CMD_ARGS[@]}" > "$LOG_FILE" 2>&1 &
 else
-    if [ -n "$RUNNER" ]; then
-        $RUNNER $PYTHON_CMD -m llama_remote "${CLEAN_ARGS[@]}" > "$LOG_FILE" 2>&1 &
-    else
-        $PYTHON_CMD -m llama_remote "${CLEAN_ARGS[@]}" > "$LOG_FILE" 2>&1 &
-    fi
+    $PYTHON_CMD -m llama_remote "${CMD_ARGS[@]}" > "$LOG_FILE" 2>&1 &
 fi
 
 PID=$!

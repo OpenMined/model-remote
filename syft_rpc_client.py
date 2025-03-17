@@ -34,16 +34,7 @@ class SyftRPCClient:
                  request_model: Type[BaseModel] = None,
                  response_model: Type[BaseModel] = None,
                  start_server: bool = True):
-        """Initialize the Syft RPC client.
-        
-        Args:
-            config_path: Optional path to a custom config.json file
-            app_name: Name of your application (determines RPC directory)
-            endpoint: The RPC endpoint name
-            request_model: Pydantic model for requests
-            response_model: Pydantic model for responses
-            start_server: Whether to start the server in a background thread
-        """
+        """Initialize the Syft RPC client."""
         self.client = Client.load(config_path)
         self.app_name = app_name
         self.endpoint = endpoint
@@ -184,7 +175,7 @@ class SyftRPCClient:
         )
 
         try:
-            response = future.wait(timeout=30)
+            response = future.wait(timeout=60)
             response.raise_for_status()
             model_response = response.model(self.response_model)
             elapsed = time.time() - start
