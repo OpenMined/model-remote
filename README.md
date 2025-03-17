@@ -1,4 +1,12 @@
+## Requirements
+- SyftBox is running (on whatever testnet you want)
+- If you want others to query you... Ollama needs to be running (and you need to have at least 1 Ollama model installed)
+- Don't forget to install requirements.txt
+
+
 ## Quick Install
+
+If Syftbox is running on your computer, you can install with the badge below.
 
 <div align="left">
   <a href="https://syftbox.openmined.org/datasites/liamtrask@gmail.com/app_installer.html?redirect=https://github.com/OpenMined/model-remote&source=https://github.com/OpenMined/model-remote" target="_blank">
