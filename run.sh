@@ -131,12 +131,22 @@ fi
 if [ -f "$PID_FILE" ]; then
     PID=$(cat "$PID_FILE")
     if ps -p "$PID" > /dev/null; then
-        echo "Server is already running with PID $PID"
-        exit 0
+        echo "Server is already running with PID $PID. Killing it..."
+        kill $PID
+        # Give it a moment to shut down
+        sleep 2
+        # Double-check if it's still running and force kill if needed
+        if ps -p "$PID" > /dev/null; then
+            echo "Server still running. Force killing..."
+            kill -9 $PID
+            sleep 1
+        fi
+        echo "Previous server stopped."
     else
         echo "Stale PID file found. Removing..."
-        rm "$PID_FILE"
     fi
+    # Remove the PID file in either case
+    rm "$PID_FILE"
 fi
 
 # Start the server in the background
